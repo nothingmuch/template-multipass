@@ -3,7 +3,12 @@
 use strict;
 use warnings;
 
-use Test::More 'no_plan';
+use Test::More;
+
+BEGIN {
+    plan skip_all => "IO::Scalar required for this test" unless eval { require IO::Scalar };
+    plan 'no_plan';
+}
 
 use Path::Class;
 
@@ -61,7 +66,7 @@ use ok 'Template::Multipass';
     );
 
     my $tmpl = '<% one %>, {% two %}, [% three %]';
-    open my $fh, "<", \$tmpl;
+    my $fh = IO::Scalar->new(\$tmpl);
 
     ok( $t->process( $fh, { one => "uno", two => "dos", three => "tres" }, \( my $out ) ), "process fh" );
 
