@@ -101,7 +101,7 @@ use ok 'Template::Multipass';
             include_var => "Include",
         },
         \$out
-    )) || diag $t->error;
+    ), "process template" ) || diag $t->error;
 
     is( $out, <<END, "wrapping, including etc in context of multipass" );
 top=reg:Top,meta:TopMeta
@@ -156,5 +156,27 @@ process_meta=reg=Process,meta=ProcessMeta
 process=reg=Process,meta=ProcessMeta
 
 
+END
+}
+
+{
+
+    my $t = Template::Multipass->new(
+        INCLUDE_PATH => [ file(__FILE__)->parent->subdir("templates")->stringify ],
+        WRAPPER      => "wrapper2.tt",
+    );
+
+    my $out;
+    ok( $t->process(
+        \"content",
+        {
+        },
+        \$out,
+    ), "process template" ) || diag $t->error;
+
+    is( $out, <<END, "config level wrapper" );
+wrapper <
+content
+>
 END
 }

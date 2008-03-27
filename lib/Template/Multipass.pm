@@ -51,6 +51,7 @@ sub default_meta_options {
     return (
         START_TAG => '{%',
         END_TAG   => '%}',
+        WRAPPER   => undef,
     );
 }
 
@@ -84,19 +85,28 @@ sub process_meta_template {
 
     local $self->context->{LOAD_TEMPLATES} = [ $provider ];
     local $self->context->{PREFIX_MAP} = {};
- 
+
     # process( ...., { meta_opts => { blah } } )  causes { blah } to be given to the inner process used on the meta template
     my $opts = $self->{_multipass}{captured_process_opts}{meta_opts} || {};
 
     my $overlay = $self->{_multipass}{config_overlay}; # constructed at _init
     local @{ $self->{_multipass}{captured_config} }{ keys %$overlay } = values %$overlay; # START_TAG, END_TAG etc
-
     my $vars = $self->{_multipass}{merged_meta_vars}; # merged by process at the top of the call chain
 
     local $@;
 
-    my ( $doc, $error ) = $provider->$method( @args ); # method is _fetch or _load
+    # dispatch the original method on the provider, getting the original result
+    my ( $doc, $error ) = $provider->$method( @args ); # method is _fetch or _load, or in the case of scalar refs a coderef prepared by the wrapper provider
+
     my $out;
+
+    # reconfigure WRAPPER, PRE_PROCES, PROCESS etc for the meta pass
+
+    my $service = $self->service;
+    local @{ $service }{ keys %$service } = ( values %$service );
+    $service->_init($self->{_multipass}{captured_config});
+
+    # Perform the actual meta pass here:
 
     if ( !$error && eval { $self->process( $doc, $vars, \$out, $opts ) } ) {
         return ({ name => $doc->{name}, path => $doc->{path}, time => $doc->{modtime}, text => $out, load => 0 }, $error );
@@ -121,7 +131,7 @@ Template::Multipass - Add a meta template pass to TT
     my $t = Template::Multipass->new(
         INCLUDE_PATH => [ file(__FILE__)->parent->subdir("templates")->stringify ],
         COMPILE_EXT  => "c",
-        META => {
+        MULTIPASS => {
             VARS => {
                 lang => "en",
                 loc => sub { $lang_handle->maketext(@_) },
@@ -164,13 +174,13 @@ unless the variables have been changed.
 
 =head1 CONFIGURATION
 
-The configuration values inside C<META> in the top level config will be
+The configuration values inside C<MULTIPASS> in the top level config will be
 overlayed on top of the normal config during meta template processing. This
 works for values such as C<START_TAG> and C<END_TAG> (which default to C<{%>
 and C<%}>), and may work for other values.
 
-Additionallly the C<META> hash can take a C<VARS> hash to be used as the meta
-vars in all runs.
+Additionallly the C<MULTIPASS> hash can take a C<VARS> hash to be used as the
+meta vars in all runs.
 
 This var hash can be further added by passing them as an option to process:
 
@@ -179,7 +189,7 @@ This var hash can be further added by passing them as an option to process:
 Values in options will override those in the configuration.
 
 Lastly the L<MANGLE_METHOD> and L<MANGLE_HASH_VARS> values may also be set in
-the C<META> configuration, and will be discussed in L</CACHING>.
+the C<MULTIPASS> configuration, and will be discussed in L</CACHING>.
 
 =head1 METHODS
 
