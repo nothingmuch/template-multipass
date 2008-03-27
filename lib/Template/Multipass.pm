@@ -80,15 +80,20 @@ sub process {
 }
 
 # called by the provider from within the process
+# this will wrap all returned documents from the real provider, and run it
+# through the meta pass, creating a document from the result of processing the
+# original
 sub process_meta_template {
     my ( $self, $provider, $method, @args ) = @_;
 
+    # ignore all other providers in the recursion
     local $self->context->{LOAD_TEMPLATES} = [ $provider ];
     local $self->context->{PREFIX_MAP} = {};
 
     # process( ...., { meta_opts => { blah } } )  causes { blah } to be given to the inner process used on the meta template
     my $opts = $self->{_multipass}{captured_process_opts}{meta_opts} || {};
 
+    # calculate the configuration and variables for the meta pass
     my $overlay = $self->{_multipass}{config_overlay}; # constructed at _init
     local @{ $self->{_multipass}{captured_config} }{ keys %$overlay } = values %$overlay; # START_TAG, END_TAG etc
     my $vars = $self->{_multipass}{merged_meta_vars}; # merged by process at the top of the call chain
@@ -100,8 +105,8 @@ sub process_meta_template {
 
     my $out;
 
-    # reconfigure WRAPPER, PRE_PROCES, PROCESS etc for the meta pass
-
+    # reconfigure WRAPPER, PRE_PROCES, PROCESS etc for the meta pass by
+    # localizing and reinitializing with the localized config
     my $service = $self->service;
     local @{ $service }{ keys %$service } = ( values %$service );
     $service->_init($self->{_multipass}{captured_config});

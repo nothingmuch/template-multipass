@@ -25,6 +25,8 @@ sub _load {
     my ( $self, $template, @args ) = @_;
 
     if ( ref $template ) {
+        # scalar reference templates are special cased here, to also call _compile after the _load
+        # this is to make the return value homogeneous for process_meta_template IIRC
         $self->{template}->process_meta_template(
             $self->{provider},
             sub {
